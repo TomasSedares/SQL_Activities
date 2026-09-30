@@ -67,3 +67,74 @@ Muestra los usuarios que tienen préstamos vencidos (fecha de devolución previs
 
 Ejercicio 17: Promedio de días de préstamo (con COALESCE)
 Calcula el promedio de días entre préstamo y devolución real para todos los préstamos devueltos. Si no hay préstamos devueltos, mostrar 0 en lugar de NULL.
+
+
+TRANSLATED VERSION
+
+# SQL_Activities
+
+Exercise 1: Users with Loans and Age
+Display the user's name, membership type, and the number of loans they have taken out. Include only users with 'Premium' or 'Student' membership who are over 25 years old. Sort by the number of loans in descending order.
+
+Exercise 2: Books by Author with Stock
+Display the author's name, the number of books they have, and the total stock of all their books. Include only authors who have published at least 2 books. Sort by total stock in descending order.
+
+Exercise 3: Loans with Custom Status
+Display the user's name, book title, and a custom loan status using CASE:
+• If ActualReturnDate exists: "Returned"
+• If Status is 'Overdue': "Overdue"
+• If Status is 'Active': "On loan"
+Include only loans from February 2024 and sort by user name.
+
+Exercise 4: Book Analysis with Availability
+Display the genre, the number of books per genre, and the average price. Additionally, add a column that states:
+• "Very expensive" if the average price > $2500
+• "Expensive" if it is between $2000 and $2500
+• "Affordable" if it is less than $2000
+Include only genres that have more than 1 book. Sort by average price in descending order.
+
+Exercise 5: Authors and their Books (including those without books)
+Display all authors along with the number of books they have (even if it is 0) and their nationality. Add a "Productivity" column that states:
+• "Very productive" if they have 3 or more books
+• "Productive" if they have 1-2 books
+• "No publications" if they have 0 books
+Sort by the number of books in descending order. Exercise 6: Users with and without Loans by Type
+Display all users along with their membership type and loan count (including zero). Include only 'Premium' and 'Basic' membership types. Sort first by membership type and then by loan count in descending order.
+
+Exercise 7: Book and Loan Analysis using RIGHT JOIN
+Display all books along with the number of times they were borrowed (including those never borrowed). Include the book title and genre. Sort by loan count in descending order.
+
+Exercise 8: Analysis by Book Genre
+Display the book genre and the total number of loans made for that genre. Include only genres of books published after 1960. Sort by loan count in descending order.
+
+Exercise 9: Users by Membership Type
+Display the membership type and the number of users who have taken out loans for each type. Include only users who have made at least two loans. Sort by count in descending order.
+
+Exercise 10: Loan Analysis by Month
+Display the loan month (as a number) and the number of loans made in each month. Include only loans from 2024 with a status of 'Active' or 'Returned'. Sort by month.
+
+Exercise 11: Generation Comparison
+Create a report showing the following in a single query:
+1. Users under 30 years old and their loans (display: 'Young', count)
+2. Users aged 30 or older and their loans (display: 'Adults', count) Sort the results by loan count in descending order.
+
+Exercise 12: Loan Return Status
+Display the user's name, the book title, and whether the loan was returned "On time" or "Late". Include only loans that have already been returned (those with an `ActualReturnDate`). Sort by username.
+
+Exercise 13: Users with Email Information
+Display the user's name, membership type, and a column labeled "Email registered" if they have an email address, or "No email" if the email is NULL. Sort by membership type.
+
+Exercise 14: Referential Integrity Test
+Attempt to delete the author with ID = 1 (Gabriel García Márquez).
+a) What happens? Note the error message.
+b) Why cannot this record be deleted?
+c) Which books by this author prevent the deletion?
+
+Exercise 15: Modifying Structure for Cascading Deletes
+Now modify the tables to allow cascading deletes. Then attempt to delete again and observe what happens.
+
+Exercise 16: JOINS with Date Filters
+Display users who have overdue loans (scheduled return date < today and status = 'Active').
+
+Exercise 17: Average Loan Duration (using COALESCE)
+Calculate the average number of days between the loan date and the actual return date for all returned loans. If there are no returned loans, display 0 instead of NULL.
