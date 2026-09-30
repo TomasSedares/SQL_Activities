@@ -1,0 +1,88 @@
+-- PUNTO 1
+
+drop procedure sp_registrar_pedido
+
+DELIMITER //
+
+CREATE PROCEDURE sp_registrar_pedido (
+	in p_id_cliente int,
+    in p_id_producto int,
+    in p_cantidad int,
+    out p_id_pedido int)
+    
+BEGIN
+
+	declare v_monto_base decimal(10,2);
+    declare v_monto_final decimal(10,2);
+    declare v_precio decimal(10,2);
+    declare v_descuento decimal(10,2);
+    declare v_ultimo_id int;
+
+	SELECT 
+		precio into v_precio
+	FROM
+		productos
+	WHERE
+		id = p_id_producto;
+	
+    SELECT 
+		descuento into v_descuento
+	FROM
+		clientes
+	where
+		id = p_id_cliente;
+        
+	set v_monto_base = v_precio * p_cantidad;
+    set v_monto_final = v_monto_base - ((v_descuento * v_monto_base) / 100);
+    
+    insert into pedidos (producto_id, cliente_id, cantidad, monto_final, fecha_pedido, fecha_estimada_entrega)
+    values (p_id_producto, p_id_cliente, p_cantidad,v_monto_final,curdate(), DATE_ADD(curdate(), INTERVAL 3 DAY));
+    
+    select 
+		last_insert_id() into v_ultimo_id;
+    
+    set p_id_pedido = v_ultimo_id;
+    
+END //
+
+DELIMITER ;
+
+CALL sp_registrar_pedido(1,1,1,@id_pedido);
+
+select 
+	@id_pedido as id;
+    
+    
+    
+    
+-- Punto 2
+
+DELIMITER //
+
+create procedure sp_extender_entrega (in p_id_pedido int, out p_filas_afectadas int)
+begin
+	
+    
+DELIMITER ;
+-- Punto 4
+
+DELIMITER //
+
+create procedure sp_calcular_promedio_entrega_clientes()
+begin 
+	select
+		c.id,
+		c.nombre,
+        avg(datediff(pe.fecha_estimada_entrega,curdate())) as fecha_promedio_entrega
+	from
+		clientes as c join pedidos as pe
+        on c.id = pe.cliente_id
+	group by
+		c.id
+	order by
+		fecha_promedio_entrega desc;
+end //
+
+DELIMITER ;
+    
+-- Punto 5

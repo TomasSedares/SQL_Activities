@@ -1,0 +1,150 @@
+-- punto 1
+/*
+delimiter // 
+
+create procedure sp_insertar_fabricante(in p_nombre varchar(100))
+begin
+	insert into fabricante (nombre) 
+    values (p_nombre);
+end //
+
+delimiter ;
+
+call sp_insertar_fabricante('tomas');
+*/
+
+-- punto 2
+/*
+delimiter // 
+
+create procedure sp_cargar_producto(
+	in p_nombre int,
+    in p_precio decimal,
+    in p_codigo_fabricante int)
+begin
+	insert into producto (nombre,precio,codigo_fabricante)
+    values (p_nombre,p_precio,p_codigo_fabricante);
+end //
+
+delimiter ;
+*/
+
+-- punto 3
+/*
+delimiter //
+
+create procedure actualizar_precio (
+	in p_id int, 
+    in p_precio_nuevo decimal)
+begin
+	update producto set precio = p_precio 
+    where codigo = p_id;
+end //
+
+delimiter ;
+*/
+
+-- punto 4
+/*
+delimiter //
+
+create procedure sp_borrar_producto (in p_nombre_producto varchar(100))
+begin
+	delete from productos
+    where nombre = p_nombre_producto;
+end //
+
+delimiter ;
+*/
+
+-- punto 5
+
+DELIMITER //
+
+CREATE PROCEDURE sp_borrar_articulo (IN p_nombre VARCHAR(100))
+BEGIN 
+	DELETE FROM producto WHERE nombre = p_nombre;
+END //
+
+DELIMITER ;
+
+-- punto 6
+
+DELIMITER //
+
+CREATE PROCEDURE sp_actualizar_nombre (IN p_id INT, IN p_nombre VARCHAR(100))
+BEGIN 
+	UPDATE fabricante
+    SET nombre = p_nombre
+    WHERE codigo = p_id;
+END //
+
+DELIMITER ;
+
+-- Punto 7
+
+DELIMITER //
+
+CREATE PROCEDURE sp_calcular_promedio (IN p_id INT, OUT ps_precio_promedio DECIMAL)
+BEGIN
+	SELECT 
+		AVG(p.precio) as precio_promedio
+	FROM
+		producto as p join fabricante as f
+        on p.codigo_fabricante = f.codigo
+	WHERE
+		p.codigo_fabricante = p_id;
+END //
+
+DELIMITER ;
+
+-- Punto 8
+-- PRIMERA VERSION
+/*
+DELIMITER //
+
+CREATE PROCEDURE sp_cargar_articulo_nuevo (
+	IN p_nombre VARCHAR(100),
+    IN p_precio DECIMAL,
+    IN p_id_fabricante INT)
+BEGIN
+	INSERT INTO producto (nombre, precio, codigo_fabricante)
+    SELECT 
+		p_nombre,
+        p_precio,
+        p_id_fabricante
+	WHERE NOT EXISTS (SELECT 
+						nombre
+					  FROM
+						producto
+					  WHERE 
+						nombre = p_nombre);
+END //
+
+DELIMITER;
+*/
+
+-- SEGUNDA VERSION
+
+DELIMITER //
+
+CREATE PROCEDURE sp_cargar_articulo_nuevo (
+    IN p_nombre VARCHAR(100),
+    IN p_precio DECIMAL,
+    IN p_id_fabricante INT)
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM producto
+        WHERE nombre = p_nombre
+    ) THEN
+        INSERT INTO producto (nombre, precio, codigo_fabricante)
+        VALUES (p_nombre, p_precio, p_id_fabricante);
+    END IF;
+END //
+
+-- tercera version 
+
+primero guardar en una variable todos los registros de prodcutos, luego crear un if en el que
+verifico si el registro que quiero agregar esta, si no esta debera tirar un mensaje que diga 
+que ya esta, si no estase tiene que agregar

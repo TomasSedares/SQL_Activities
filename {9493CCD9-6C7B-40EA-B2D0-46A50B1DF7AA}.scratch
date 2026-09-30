@@ -1,0 +1,92 @@
+-- UTILIZA LA BASE DE DATOS DEL TPDE CTEs
+	
+
+/* 1) Obtener Nombre Completo del Cliente
+• Crear una función que concatene el nombre y apellido de un cliente en un único texto.*/
+
+DELIMITER //
+
+create function concatenarNombres (p_nombre varchar(50), p_apellido varchar(50))
+returns varchar
+
+deterministic 
+no sql
+
+begin
+	
+    declare v_nombreYapellido varchar(50);
+    set v_nombreYapellido = concat(p_nombre, ' ', p_apellido);
+    
+    return v_nombreYapellido;
+end;
+
+DELIMITER ;
+
+/* 2) Calcular el Valor Promedio de Ventas por Cliente
+• Diseñar una función que devuelva el promedio del valor de ventas para un cliente dado.*/
+
+DELIMITER //
+
+create function calcularPromedio (p_cliente_id int)
+returns float
+
+deterministic
+reads sql data
+
+begin
+
+	select 
+		avg(v.valor) as promedio_ventas
+	from
+		ventas as v join clientes as c
+        on v.cliente_id = c.cliente_id
+	where 
+		v.cliente_id = p_cliente_id
+
+	return promedio_ventas
+end;
+
+DELIMITER ; 
+
+select calcularPromedio (1);
+
+select cliente_id from clientes
+
+
+/* 3) Obtener la Antigüedad de un Empleado
+• Crea una función que calcule la antigüedad de un empleado en años, basada en su fecha de contratación.*/
+
+
+
+/* 4) Calcular Comisión de Ventas
+• Crea una función que determine una comisión del 10% del valor total de las ventas realizadas por un cliente.*/
+
+
+
+/* 5) Obtener Jefe de un Departamento
+• Diseña una función que devuelva el nombre del jefe de un departamento (si está asignado).*/
+
+
+
+/* 6) Calcular Total de Ventas en un Rango de Fechas
+• Crea una función que devuelva el total de ventas dentro de un rango específico de fechas.*/
+
+
+
+/* 7) Calcular Porcentaje de Salario Respecto al Total del Departamento
+• Diseña una función que calcule qué porcentaje representa el salario de un empleado sobre el total del departamento.*/
+
+
+
+/* 8) Determinar Clientes sin Ventas
+• Crea una función que determine si un cliente no tiene ventas registradas.*/
+
+
+
+/* 9) Calcular Número de Ventas por Cliente
+• Diseña una función que devuelva el número total de ventas realizadas por un cliente.*/
+
+
+
+/* 10) Obtener Nombre del Departamento de un Empleado
+• Crea una función que devuelva el nombre del departamento al que pertenece un empleado.*/

@@ -1,0 +1,498 @@
+-- query 2
+/*
+select 
+	nombre
+from
+	clientes
+where
+	clientes.id in (select distinct cliente_id from ventas)
+*/
+
+-- query 3
+/*
+select 
+	nombre
+from 
+	productos
+where
+	productos.id not in (select producto_id from ventas)
+*/
+
+-- query 4
+/*
+SELECT nombre, 
+       (SELECT SUM(total) 
+        FROM ventas 
+        WHERE ventas.cliente_id = clientes.id) AS total_gastado
+FROM clientes
+WHERE id IN (SELECT cliente_id FROM ventas);
+*/
+
+-- query 5
+/*
+SELECT nombre 
+FROM productos
+WHERE id IN (
+    SELECT producto_id
+    FROM ventas
+    GROUP BY producto_id
+    HAVING COUNT(*) > 1
+);
+*/
+
+-- query 6
+/*
+select 
+	nombre
+from
+	clientes
+where 
+	clientes.id in (select cliente_id from ventas join productos on ventas.producto_id = productos.id where productos.precio > (select avg(precio) from productos))
+*/
+
+
+-- query 7
+/*
+select 
+	nombre, (select count(producto_id) from ventas) as cant_vendido
+from 
+	productos
+	
+SELECT nombre, 
+       (SELECT SUM(v.cantidad) 
+        FROM ventas v 
+        WHERE v.producto_id = p.id) AS total_vendido
+FROM productos p
+WHERE id IN (SELECT producto_id FROM ventas);
+*/
+
+-- Query 8
+/*
+select
+	nombre 
+from
+	clientes
+where 
+	clientes.id in (select 
+						cliente_id 
+					from 
+						ventas 
+                    group by 
+						cliente_id
+					having 
+						sum(total) > (select avg(total) from ventas))
+*/
+
+-- query 9
+/*
+select 
+	nombre
+from
+	productos
+where
+	productos.precio > (select 
+							avg(precio) 
+						from 
+							productos)
+*/
+
+-- Query 10
+/*
+select
+	nombre
+from
+	clientes
+where
+	clientes.id > 5 in (select cliente_id from ventas)
+*/
+
+-- Query 11
+
+/*
+-- Query 12
+-- CORREGIR 
+select 
+	nombre, (select count(cliente_id) from ventas) as total_compradores
+from
+	productos
+*/
+
+
+
+
+
+
+-- tp de subquerys
+
+-- query 1
+/*
+select
+	nombre,email
+from 
+	clientes
+where 
+	clientes.id_cliente in (select id_cliente from ventas)
+*/
+
+-- query 2
+/*
+select 
+	nombre
+from 
+	productos
+where
+	id_categoria in (select id_categoria from categorias where nombre = 'Electronica')
+*/
+
+-- query 3
+
+-- query 4
+/*
+select
+	nombre, precio
+from
+	productos
+where
+	precio > (select avg(precio) from productos)
+*/
+
+
+
+
+
+
+
+
+
+
+-- SIMULACRO DE PARCIAL
+
+-- Query 1
+/*
+DELIMITER //
+
+create procedure obtener_info_clientes(in p_categoria varchar(60))
+begin
+	
+	select 
+		nombre
+	from
+		clientes
+	where
+		clientes.id in (select
+							cliente_id
+						from
+							pedidos
+						where
+							pedidods.id in (select 
+												pedido_id
+											from
+												detalles_pedido
+											where
+												producto_id in (select 
+																	id
+																from
+																	productos
+																where
+																	categoria = p_categoria)));
+end //
+
+DELIMITER ; 
+*/
+
+-- Query 2
+/*
+DELIMITER //
+
+create procedure obtener_ventas(in fecha_inicio varchar(10), in fecha_final varchar(10))
+begin
+
+	select
+		nombre,sum(precio)
+	from
+		productos join detalles_pedido on
+        productos.id = detalles_pedido.producto_id and
+        detalles_pedido join pedidos on
+        detalles_pedido.pedido_id = pedidos.id
+	group by
+		nombre
+	having
+		pedidos.fecha_pedido between fecha_inicio and fecha_final;
+
+end //
+
+DELIMITER ; 
+*/
+
+-- Query 3  CORREGIR
+/*
+DELIMITER //
+
+create procedure insertar_productos()
+begin 
+
+	declare p_id int default 0,
+    declare p_nombre varchar (60) defaul '';
+	
+	select 
+		id into p_id,
+		nombre into p_nombre,
+	from
+		productos
+	where
+		id not in (select producto_id from detalles_pedido)
+        
+	insert into productos_sin_ventas (id, nombre) values (p_id, p_nombre);
+
+end //
+
+DELIMITER ;
+*/
+
+-- Query 4
+/*
+DELIMITER //
+
+create procedure crear_pedido (out id_pedido int, in p_cliente_id int, in fecha_pedido varchar (10), in p_total double)
+begin
+
+	
+
+end //
+
+DELIMITER ;
+*/
+
+-- Query 5
+/*
+DELIMITER //
+
+create procedure cambiar_stock (in total_vendido int,out p_id_producto int)
+begin
+
+	declare stock_actual int default 0;
+    
+    select
+		stock into stock_actual
+	from
+		productos
+	where
+		productos.id = p_id_producto;
+        
+	update 
+		productos 
+	set 
+		stock = stock_actual - total_vendido
+	where 
+		id = p_id_producto;
+
+end // 
+
+DELIMITER ;
+*/
+
+-- Query 6
+/*
+DELIMITER //
+create procedure buscar_clientes()
+begin
+
+	select
+		*
+	from
+		clientes
+	where
+		id_cliente not in (select id_cliente from clientes) and
+        ventas.fecha >= DATE_SUB(CURDATE(), INTERVAL 1 YEAR);
+
+end //
+DELIMITER :
+*/
+
+-- Query 7
+/*
+DELIMITER //
+create procedure obtener_productos_precio()
+begin
+
+	select
+		id_categoria, avg(precio) as precio_promedio
+	from
+		productos
+	where
+		precio > precio_promedio
+	having
+		id_categoria;
+
+end //
+DELIMITER ;
+*/
+
+-- PRACTICA PARCIAL
+
+-- Query 8 
+/*
+DELIMITER //
+create procedure sumar_ventas_totales_cliente(in p_cliente_id int, out venta_total double)
+begin
+	
+	SELECT
+		sum(cantidad * precio_unitario) as total_ventas
+	from
+		detalles_pedidon as dp join pedidos on
+        dp.pedido_id = pedidos.id and
+        pedidos join clientes on
+        pedidos.cliente_id =clientes.id
+	where
+		p_cliente_id = clientes.id;							
+
+end //
+DELIMITER 
+*/
+
+/* practica_basica_sql */
+/*
+create table Cliente(
+	CLI_ID INT PRIMARY KEY,
+    NOMBRES VARCHAR(100),
+    APELLIDO VARCHAR(100),
+    DIRECCION VARCHAR(100),
+    EMAIL VARCHAR(100)
+);
+
+create table Ventas(
+	VENTA_ID INT PRIMARY KEY,
+    LIBRO_ID INT,
+    CLI_ID INT,
+    CANTIDAD INT,
+    PRECIO DECIMAL (7,2),
+    FECHA_COMPRA TIMESTAMP,
+    FOREIGN KEY (CLI_ID) REFERENCES Cliente (CLI_ID),
+    FOREIGN KEY (LIBRO_ID) REFERENCES Libros (LIBRO_ID)
+);
+
+create table Libros(
+	LIBRO_ID INT PRIMARY KEY,
+    TITULO VARCHAR(100),
+    COSTO DECIMAL (7,2),
+    IMAGEN BLOB
+);
+*/
+
+-- punto 2
+/*
+select
+	c.NOMBRES,
+    l.TITULO,
+    v.FECHA_COMPRA
+from
+	Libros as l,
+    Cliente as c,
+    Ventas as v
+where
+	l.LIBRO_ID = v.LIBRO_ID AND
+    c.CLI_ID = v.CLI_ID
+*/
+/*
+-- PUNTO 3
+select
+	v.*,
+    c.NOMBRES,
+    l.TITULO,
+    v.PRECIO * v.CANTIDAD as precio_final
+from
+	Ventas as v,
+    Cliente as c,
+    Libros as l
+where
+	l.LIBRO_ID = v.LIBRO_ID AND
+    c.CLI_ID = v.CLI_ID
+*/
+
+-- punto 4
+/*
+select
+	c.*,
+    l.TITULO,
+    v.CANTIDAD
+from
+	Cliente as c,
+    Ventas as v,
+    Libros as l
+where
+	l.LIBRO_ID = v.LIBRO_ID AND
+    c.CLI_ID = v.CLI_ID AND
+	l.COSTO > 50
+*/
+
+-- punto 5
+/*
+select
+	v.*,
+    c.NOMBRES,
+    c.DIRECCION,
+    l.TITULO
+from
+    Ventas as v,
+    Cliente as c,
+    Libros as l
+where
+	l.LIBRO_ID = v.LIBRO_ID AND
+    c.CLI_ID = v.CLI_ID AND
+    v.VENTA_ID BETWEEN 1 AND 3
+*/
+
+-- punton 6
+/*
+select 
+	c.NOMBRES,
+    c.EMAIL,
+    l.TITULO
+from
+	Cliente as c,
+    Libros as l,
+    Ventas as v
+where
+	l.LIBRO_ID = v.LIBRO_ID AND
+    c.CLI_ID = v.CLI_ID AND
+    c.APELLIDO LIKE "KWAN"
+*/
+
+
+create table empleado(
+	codigo int primary key,
+    nif char(9),
+    nombre varchar(100),
+    apellido1 varchar(100),
+    apellido2 varchar(100),
+    codigo_departamento int(10),
+    foreign key (codigo_departamento) references departamento(codigo)
+);
+
+create table departamento(
+	codigo int primary key,
+    nombre varchar(100),
+    presupuesto double
+);
+
+INSERT INTO departamento VALUES(1, 'Desarrollo', 120000, 6000);
+INSERT INTO departamento VALUES(2, 'Sistemas', 150000, 21000);
+INSERT INTO departamento VALUES(3, 'Recursos Humanos', 280000, 25000);
+INSERT INTO departamento VALUES(4, 'Contabilidad', 110000, 3000);
+INSERT INTO departamento VALUES(5, 'I+D', 375000, 380000);
+INSERT INTO departamento VALUES(6, 'Proyectos', 0, 0);
+INSERT INTO departamento VALUES(7, 'Publicidad', 0, 1000);
+INSERT INTO empleado VALUES(1, '32481596F', 'Aarón', 'Rivero', 'Gómez', 1);
+INSERT INTO empleado VALUES(2, 'Y5575632D', 'Adela', 'Salas', 'Díaz', 2);
+INSERT INTO empleado VALUES(3, 'R6970642B', 'Adolfo', 'Rubio', 'Flores', 3);
+INSERT INTO empleado VALUES(4, '77705545E', 'Adrián', 'Suárez', NULL, 4);
+INSERT INTO empleado VALUES(5, '17087203C', 'Marcos', 'Loyola', 'Méndez', 5);
+INSERT INTO empleado VALUES(6, '38382980M', 'María', 'Santana', 'Moreno', 1);
+INSERT INTO empleado VALUES(7, '80576669X', 'Pilar', 'Ruiz', NULL, 2);
+INSERT INTO empleado VALUES(8, '71651431Z', 'Pepe', 'Ruiz', 'Santana', 3);
+INSERT INTO empleado VALUES(9, '56399183D', 'Juan', 'Gómez', 'López', 2);
+INSERT INTO empleado VALUES(10, '46384486H', 'Diego','Flores', 'Salas', 5);
+INSERT INTO empleado VALUES(11, '67389283A', 'Marta','Herrera', 'Gil', 1);
+INSERT INTO empleado VALUES(12, '41234836R', 'Irene','Salas', 'Flores', NULL);
+INSERT INTO empleado VALUES(13, '82635162B', 'Juan Antonio','Sáez', 'Guerrero',
+NULL);

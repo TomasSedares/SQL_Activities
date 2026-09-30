@@ -1,0 +1,177 @@
+create database tp_CTEs;
+
+CREATE TABLE Ventas (
+    venta_id INT PRIMARY KEY AUTO_INCREMENT,
+    cliente_id INT NOT NULL,
+    fecha_venta DATE NOT NULL,
+    valor DECIMAL(10, 2) NOT NULL
+);
+
+CREATE TABLE Empleados (
+    empleado_id INT PRIMARY KEY AUTO_INCREMENT,
+    nombre VARCHAR(100) NOT NULL,
+    departamento_id INT NOT NULL,
+    fecha_contratacion DATE NOT NULL,
+    salario DECIMAL(10, 2) NOT NULL
+);
+
+CREATE TABLE Clientes (
+    cliente_id INT PRIMARY KEY AUTO_INCREMENT,
+    nombre VARCHAR(100) NOT NULL,
+    apellido VARCHAR(100) NOT NULL
+);
+
+CREATE TABLE Departamentos (
+    departamento_id INT PRIMARY KEY AUTO_INCREMENT,
+    nombre_departamento VARCHAR(100) NOT NULL,
+    jefe_id INT DEFAULT NULL
+);
+
+ALTER TABLE Ventas
+ADD CONSTRAINT fk_cliente_id 
+FOREIGN KEY (cliente_id) REFERENCES Clientes(cliente_id);
+
+ALTER TABLE Empleados
+ADD CONSTRAINT fk_departamento_id 
+FOREIGN KEY (departamento_id) REFERENCES Departamentos(departamento_id);
+
+/* Ejercicio 1: Filtrar datos con CTE
+Crear una CTE llamada VentasAltas que seleccione todas las ventas con un valor mayor a 1000 de la tabla Ventas.
+Luego, en la consulta principal, mostrar el número total de ventas y el valor promedio de las 
+ventas en esa categoría. */
+
+with Ventas_altas as 
+(
+	select 
+		valor 
+	from 
+		ventas
+	where
+		valor > 1000
+)
+
+select 
+	avg(valor) as valor_ventas_promedio,
+    count(*) as total_ventas
+from
+	Ventas_altas;
+
+/* Ejercicio 2: CTE con funciones de agregado
+Usando una CTE llamada PromedioPorDepartamento, seleccionar el promedio de salarios por 
+departamento de la tabla Empleados. En la consulta principal, mostrar solo los 
+departamentos con un salario promedio superior a 4000. */
+
+with PromedioPorDepartamento as 
+(
+	select 
+		avg(salario) as salario_promedio,
+        departamento_id
+	from
+		empleados
+	group by 
+		departamento_id
+)
+
+select 
+	d.nombre_departamento
+from
+	departamentos as d join PromedioPorDepartamento as ppd
+    on d.departamento_id = ppd.departamento_id
+where
+	ppd.salario_promedio > 4000;
+	
+
+/* Ejercicio 3: CTE para calcular diferencias entre fechas
+Crear una CTE llamada AntigüedadEmpleados que calcule la cantidad de días que lleva cada empleado 
+en la empresa, utilizando la función DATEDIFF sobre la fecha de contratación.
+En la consulta principal, mostrar los empleados que llevan más de 5 años en la empresa. */
+
+with AntigüedadEmpleados as 
+(
+	select
+		datediff(curdate(),fecha_contratacion) as antiguedad,
+        empleado_id
+	from
+		empleados
+)
+
+select
+	e.empleado_id,
+    e.nombre
+from 
+	empleados as e join AntigüedadEmpleados as ae
+    on e.empleado_id = ae.empleado_id
+where
+	ae.antiguedad > 1825;
+
+/* Ejercicio 4: CTE para combinar varias tablas
+Crear una CTE llamada VentasClientes que una las tablas Ventas y Clientes por el cliente_id.
+Luego, en la consulta principal, mostrar los clientes que han hecho más de 3 compras en el 
+último año. */
+
+with VentasClientes as 
+(
+	select
+		count(v.venta_id) as total_compras,
+		c.cliente_id
+	from
+		clientes as c join ventas as v
+        on c.cliente_id = v.cliente_id
+	group by
+		c.cliente_id
+)
+
+select 
+	c.nombre
+from
+	clientes as c join VentasClientes as vc
+    on c.cliente_id = vc.cliente_id
+where
+	vc.total_compras > 3;
+
+/* Ejercicio 5: CTE con ORDER BY y LIMIT
+Crear una CTE que seleccione los 10 empleados con los salarios más altos de la tabla Empleados.
+Mostrar su nombre y salario en la consulta principal. */
+
+with salariosMasAltos as
+(
+	select
+		empleado_id,
+        salario
+	from
+		empleados
+	order by
+		salario desc
+	limit 10
+)
+
+select 
+	e.nombre,
+    s.salario
+from
+	empleados as e join salariosMasAltos as s
+    on e.empleado_id = s.empleado_id
+
+/* Ejercicio 6: CTE con GROUP BY y HAVING
+Usar una CTE llamada VentasPorMes que agrupe las ventas por mes y año usando las funciones YEAR() 
+y MONTH(). Luego, en la consulta principal, mostrar los meses que tienen un total de 
+ventas superior a 5000. */
+
+/* Ejercicio 7: CTE recursiva para jerarquía
+Usar una CTE recursiva llamada JerarquíaDepartamental para crear una lista jerárquica de 
+departamentos de una empresa. Cada departamento tiene un jefe_id que es el responsable de 
+un departamento superior. */
+
+/* Ejercicio 8: CTE para encontrar duplicados
+Crear una CTE llamada ClientesDuplicados que seleccione los clientes que tienen el
+mismo nombre y apellido en la tabla Clientes. Mostrar los duplicados en la consulta principal. */
+
+/* Ejercicio 9: CTE anidada
+Crear una CTE llamada TotalVentasPorCliente que calcule el total de ventas por cada cliente.
+Luego, usar una segunda CTE para seleccionar los clientes con un total de ventas 
+superior a 10.000. */
+
+/* Ejercicio 10: CTE con JOIN y funciones de fecha
+Crear una CTE llamada VentasUltimoMes que seleccione todas las ventas del último mes 
+(usando la función DATE_SUB() con la fecha actual) y luego unirlas con 
+la tabla Clientes para mostrar el nombre del cliente y el valor de la venta. */

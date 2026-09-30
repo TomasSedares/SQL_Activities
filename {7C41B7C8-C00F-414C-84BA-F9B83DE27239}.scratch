@@ -1,0 +1,361 @@
+create database parcial_bdd2;
+use parcial_bdd2;
+
+CREATE DATABASE IF NOT EXISTS tienda;
+USE tienda;
+
+-- =========================
+-- Tabla: clientes
+-- =========================
+CREATE TABLE clientes (
+    cliente_id INT PRIMARY KEY AUTO_INCREMENT,
+    nombre VARCHAR(50),
+    apellido VARCHAR(50),
+    ciudad VARCHAR(50),
+    email VARCHAR(50)
+);
+
+-- =========================
+-- Tabla: productos
+-- =========================
+CREATE TABLE productos (
+    producto_id INT PRIMARY KEY AUTO_INCREMENT,
+    nombre_producto VARCHAR(50),
+    categoria VARCHAR(50),
+    precio DECIMAL(10,2),
+    stock INT
+);
+
+-- =========================
+-- Tabla: pedidos
+-- =========================
+CREATE TABLE pedidos (
+    pedido_id INT PRIMARY KEY AUTO_INCREMENT,
+    cliente_id INT,
+    fecha_pedido DATE,
+
+    CONSTRAINT fk_pedidos_clientes
+        FOREIGN KEY (cliente_id)
+        REFERENCES clientes(cliente_id)
+);
+
+-- =========================
+-- Tabla: detalle_pedido
+-- =========================
+CREATE TABLE detalle_pedido (
+    detalle_id INT PRIMARY KEY AUTO_INCREMENT,
+    pedido_id INT,
+    producto_id INT,
+    cantidad INT,
+
+    CONSTRAINT fk_detalle_pedido_pedidos
+        FOREIGN KEY (pedido_id)
+        REFERENCES pedidos(pedido_id),
+
+    CONSTRAINT fk_detalle_pedido_productos
+        FOREIGN KEY (producto_id)
+        REFERENCES productos(producto_id)
+);
+
+-- =========================
+-- Tabla: alertas_stock
+-- =========================
+CREATE TABLE alertas_stock (
+    alerta_id INT PRIMARY KEY AUTO_INCREMENT,
+    producto_id INT,
+    stock_actual INT,
+    fecha_alerta DATETIME,
+
+    CONSTRAINT fk_alertas_stock_productos
+        FOREIGN KEY (producto_id)
+        REFERENCES productos(producto_id)
+);
+
+-- =========================
+-- Tabla: auditoria_operaciones
+-- =========================
+CREATE TABLE auditoria_operaciones (
+    auditoria_op_id INT PRIMARY KEY AUTO_INCREMENT,
+    categoria VARCHAR(50),
+    fecha_operacion DATETIME,
+    cantidad_productos_actualizados INT
+);
+
+-- =========================
+-- Tabla: auditoria_errores
+-- =========================
+CREATE TABLE auditoria_errores (
+    auditoria_id INT PRIMARY KEY AUTO_INCREMENT,
+    procedimiento VARCHAR(100),
+    operacion VARCHAR(100),
+    mensaje_error VARCHAR(255),
+    fecha_error DATETIME
+);
+
+/*
+Ejercicio 1 – Vista + UDF - 15 puntos 
+Desarrollar los siguientes objetos: 
+
+1. Una vista llamada vista_gasto_clientes que muestre para cada cliente que haya realizado al 
+menos un pedido:
+•	el identificador del cliente, 
+•	su nombre completo (concatenando nombre y apellido), 
+•	el total gastado (suma de cantidad * precio de todos los productos en sus pedidos). 
+
+2. Una funcion escalar llamada obtener_gasto_cliente que reciba un identificador de cliente 
+y devuelva el total gastado utilizando la vista anterior. Si el cliente no existe o no tiene 
+pedidos, la funcion debe retornar 0 (cero). No debe generar ningun error. 
+La funcion debe estar declarada con el tipo READS_SQL_DATA. */
+
+create view vista_gasto_clientes as 
+select
+	sum(pro.precio * dp.cantidad) as total_gastado,
+	c.cliente_id,
+	c.nombre,
+    c.apellido
+from
+	clientes as c join pedidos as p
+    on c.cliente_id = p.cliente_id join detalle_pedido as dp
+    on p.pedido_id = dp.pedido_id join productos as pro
+    on dp.producto_id = pro.producto_id
+group by
+	c.cliente_id,
+	c.nombre,
+    c.apellido;
+
+DELIMITER //
+
+create function obtener_gasto_cliente(p_cliente_id int)
+returns float 
+deterministic
+reads sql data
+begin
+	declare v_total_gastado float
+    
+    select
+		total_gastado into v_total_gastado
+	from
+		vista_gasto_clientes
+	where
+		cliente_id = p_cliente_id
+        
+	return if not null(v_total_gastado,0);
+end;
+
+DELIMITER ; 
+
+/*
+Ejercicio 2 – CTE’s Relacionadas  - 20 puntos 
+Escribir una consulta SQL que utilice CTE relacionadas para obtener información de 
+ventas por producto.
+La consulta debe incluir:
+
+1.	Una CTE llamada ventas_por_producto que calcule, para cada producto vendido: 
+•	producto_id 
+•	nombre del producto 
+•	categoría 
+•	cantidad total vendida 
+•	total recaudado (cantidad * precio) 
+2.	Una segunda CTE llamada promedio_por_categoria que utilice la CTE anterior y calcule el 
+promedio de unidades vendidas por producto dentro de cada categoría. 
+3.	En la consulta principal, mostrar solamente los productos cuya cantidad total vendida 
+sea mayor al promedio de unidades vendidas de su propia categoría. 
+Ordenar el resultado por categoría y cantidad total vendida de mayor a menor.*/
+
+DELIMITER //
+
+with ventas_por_producto as(
+select
+    pro.producto_id,
+    pro.nombre_producto,
+    pro.categoria,
+    sum(dp.cantidad) as cantidad_vendida,
+    sum(pro.precio * dp.cantidad) as total_recaudado
+from
+	pedidos as p join detalle_pedido as dp 
+    on p.pedido_id = dp.pedido_id join productos as pro
+    on dp.producto_id = pro.producto_id
+group by
+	pro.producto_id,
+    pro.nombre_producto,
+    pro.categoria
+),
+promedio_por_categoria as(
+	select
+		avg(cantidad_vendida) as ventas_promedio,
+        categoria
+    from
+		ventas_por_producto; 
+	group by
+		categoria
+);
+
+DELIMITER ;
+
+select
+	vpp.nombre_producto,
+    vpp.categoria,
+	ppc.ventas_promedio,
+    ppc.categoria
+from
+	promedio_por_categoria as ppc join ventas_por_producto as vpp
+    on ppc.categoria = vpp.categoria
+where
+	vpp.cantidad_vendida > ventas_promedio
+order by
+	cantidad_vendida desc;
+    
+/*Ejercicio 3 – SP con parametro OUT, transaccion y manejo de errores - 20 puntos 
+Crear un procedimiento almacenado llamado registrar_cliente con los siguientes parametros: 
+•	IN p_nombre VARCHAR(50) 	IN p_apellido VARCHAR(50) 	IN p_ciudad VARCHAR(50) 
+•	IN p_email VARCHAR(50) 	OUT p_cliente_id INT 
+
+El procedimiento debe realizar las siguientes acciones: 
+1. Validar que no exista otro cliente con el mismo correo electronico. Si existe, generar un 
+error personalizado 45000 con un mensaje adecuado. 
+2. Insertar el nuevo cliente en la tabla Clientes y obtener el identificador generado
+ automaticamente. 
+3. Usar transacciones para asegurar que la operacion sea atomica. 
+4. Declarar un manejador de excepciones (SQLEXCEPTION) que:
+•	deshaga la transaccion en caso de error, 
+•	registre el error en la tabla Auditoria_Errores (incluyendo nombre del procedimiento, 
+operacion 'insertar cliente', mensaje de error y fecha actual), 
+•	no relance el error. 
+5. Si la operacion se completa con exito, mostrar un mensaje que indique el ID del 
+cliente registrado.
+6. Devolver el ID generado a traves del parametro de salida p_cliente_id  */
+
+DELIMITER //
+
+create procedure registrar_cliente(IN p_nombre VARCHAR(50), IN p_apellido varchar(50), IN p_ciudad VARCHAR(50),IN p_email VARCHAR(50),OUT p_cliente_id INT)
+begin
+	declare v_mensaje_error varchar(100);
+
+	declare exit handler for sqlexception
+    begin
+		rollback;
+        select v_mensaje_error;
+        insert into auditoria_errores (procedimiento,operacion,mensaje_error,fecha_error;
+    end;
+
+	declare continue handler for sqlstate '45000'
+    begin
+		select 'el cliente ya existe';
+    end;
+    
+	start transaction
+	
+    if exists (select 1 from clientes where email = p_email) then
+		signal sqlstate '45000';
+        set v_mensaje_error = 'eror: usuario existente';
+        signal sqlexception;
+	else
+		insert into clientes(nombre,apellido,ciudad,email)
+        values (p_nombre,p_apellido,p_ciudad,p_email);
+        
+        set p_cliente_id = LAST_INSERT_ID();
+	end if;
+    
+    commit;    
+end;
+
+DELIMITER ; 
+
+/*
+Ejercicio 4 – Actualizacion masiva con RESIGNAL - 25 puntos 
+Crear un procedimiento almacenado llamado aplicar_descuento_categoria que reciba un 
+parametro p_categoria VARCHAR(50) y realice las siguientes acciones: 
+1. Verificar que exista al menos un producto con esa categoria. Si no existe, generar
+ un error personalizado 45000 con el mensaje 'Categoria no encontrada'. 
+2. Aplicar un descuento del 10 por ciento a todos los productos de esa categoria 
+(actualizar el campo precio multiplicandolo por 0.9). 
+3. Contar cuantos productos fueron actualizados. 
+4. Registrar la operacion en la tabla Auditoria_Operaciones (categoria, fecha actual, 
+cantidad actualizada). 
+5. Manejar errores con un handler SQLEXCEPTION que: 
+•	inserte un registro en Auditoria_Errores (procedimiento, operacion 'descuento categoria',
+ mensaje generico, fecha), 
+•	relance el error utilizando RESIGNAL. 
+6. Si la operacion es exitosa, mostrar un mensaje que indique la cantidad de productos 
+actualizados 
+*/
+DELIMITER //
+
+create procedure aplicar_descuento_categoria(in p_categoria varchar(50))
+begin
+	declare v_cantidad int;
+    
+    declare exit handler for sqlexception
+    begin
+    
+    end;
+    
+    declare exit handler for sqlstate '45000'
+    begin
+		select 'Categoria no encontrada';
+		resignal;
+    end;
+    
+    select
+		count(*) as v_cantidad
+	from
+		productos
+	where
+		categoria = p_categoria;
+        
+	if(v_cantidad = 0) then
+		signal sqlstate '45000';
+	else
+		update productos
+        set precio = precio * 0.9
+        where categoria = p_categoria
+	end if
+    
+    select row_count();
+    
+    SELECT CONCAT('Se han modificado ', ROW_COUNT(), ' elementos');
+    
+end;
+
+DELIMITER ; 
+/*
+Ejercicio 5 – Trigger  +  SP - 20 puntos 
+Crear un procedimiento almacenado llamado registrar_pedido que reciba:
+•	p_cliente_id 
+•	p_producto_id 
+•	p_cantidad 
+El procedimiento debe:
+1.	Crear un registro en la tabla pedidos. 
+2.	Crear el registro correspondiente en la tabla detalle_pedido. 
+3.	Actualizar el stock del producto vendido, descontando la cantidad indicada. 
+Luego, crear un trigger que se ejecute cada vez que se actualice el stock de un producto.
+El trigger debe:
+1.	Registrar la operación en la tabla auditoria_operaciones, guardando:
+•	la categoría del producto actualizado 
+•	la fecha de la operación 
+•	la cantidad modificada en el stock 
+Aclaración: el campo cantidad_productos_actualizados debe interpretarse
+ como la cantidad modificada en el stock.
+2.	Si el nuevo stock del producto queda por debajo de 5 unidades, insertar un registro en
+ la tabla alertas_stock, guardando: 
+•	producto afectado - stock actual - fecha de la alerta
+*/
+
+DELIMITER // 
+
+create procedure registrar_pedido(in p_cliente_ int, in p_producto_id int, in p_cantidad int)
+begin
+	insert into pedidos(cliente_id,fecha_pedido)
+    values(p_cliente_id,curdate());
+    
+    
+end;
+
+DELIMITER ; 
+
+create trigger actualizar_precio
+after update on productos
+for each row
+begin
+	
+end;

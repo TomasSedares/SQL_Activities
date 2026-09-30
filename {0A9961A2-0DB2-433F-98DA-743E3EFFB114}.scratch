@@ -1,0 +1,322 @@
+create database tp_sp_manejadores;
+use tp_sp_manejadores;
+
+CREATE TABLE ejemplo_tabla (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(50)
+);
+
+CREATE TABLE socios (
+    id_socio INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(50),
+    apellido VARCHAR(50),
+    fecha_nacimiento DATE,
+    direccion VARCHAR(100),
+    telefono VARCHAR(20)
+);
+
+CREATE TABLE planes (
+    id_plan INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(50),
+    duracion INT,
+    precio DECIMAL(10, 2),
+    servicios TEXT
+);
+
+CREATE TABLE actividades (
+    id_actividad INT AUTO_INCREMENT PRIMARY KEY,
+    id_socio INT,
+    id_plan INT,
+    FOREIGN KEY (id_socio) REFERENCES socios(id_socio),
+    FOREIGN KEY (id_plan) REFERENCES planes(id_plan)
+);
+
+-- Insertar datos en ejemplo_tabla
+INSERT INTO ejemplo_tabla (nombre) VALUES ('Ejemplo 1'), ('Ejemplo 2');
+
+-- Insertar datos en socios
+INSERT INTO socios (nombre, apellido, fecha_nacimiento, direccion, telefono) 
+VALUES 
+('Juan', 'Pérez', '1990-05-15', 'Calle Falsa 123', '123456789'),
+('María', 'Gómez', '1985-10-20', 'Avenida Siempre Viva 456', '987654321');
+
+-- Insertar datos en planes
+INSERT INTO planes (nombre, duracion, precio, servicios) 
+VALUES 
+('Plan Básico', 30, 50.00, 'Acceso a gimnasio'),
+('Plan Premium', 90, 120.00, 'Acceso a gimnasio + clases dirigidas');
+
+-- Insertar datos en actividades
+INSERT INTO actividades (id_socio, id_plan) 
+VALUES 
+(1, 1),
+(2, 2);
+
+-- Guardar el sql_mode actual
+SET @old_sql_mode = @@sql_mode;
+
+-- Desactivar restricciones temporalmente
+SET sql_mode = '';
+
+-- Restaurar el sql_mode original
+SET sql_mode = @old_sql_mode;
+
+
+-- .............................................................................................
+
+-- punto 1
+/*Crea un procedimiento almacenado insertarEnTablaInexistente que intente insertar un registro en
+ una tabla inexistente y maneje el error con un handler SQLEXCEPTION.*/
+
+DELIMITER //
+
+create procedure insertarEnTablaInexistente(in p_nombre varchar(50), in p_edad int)
+begin 
+	declare exit handler for sqlexception
+    begin
+		select 'tabla inexistente';
+	end;
+    
+    insert into personal (nombre, edad) 
+    values (p_nombre, p_edad);
+end; 
+
+DELIMITER ;
+
+-- punto 2
+/*Crea un procedimiento almacenado crearTablaExistente que intente crear una tabla que ya existe y
+maneje la advertencia con un handler SQLWARNING.*/
+
+DELIMITER //
+
+create procedure crearTablaExistente(in nombre_tabla varchar(50))
+begin
+	declare continue handler for sqlwarning
+    begin
+		select 'la tabla ya existe';
+	end;
+    
+    create table nombre_tabla(id int, nombre varchar(50));
+end;
+
+DELIMITER ;
+
+-- punto 3
+/*Crea un procedimiento almacenado seleccionarRegistroInexistente que intente seleccionar un
+registro de una tabla basándose en un ID que no existe y maneje la condición NOT FOUND.*/
+ 
+DELIMITER //
+
+create procedure seleccionarRegistroInexistente (in p_id int)
+begin
+	declare continue handler for not found
+	begin
+		select 'registro no encontrado';
+	end;
+    
+    select
+		*
+	from
+		planes
+	where
+		id_plan = p_id;
+end;
+
+DELIMITER ;
+
+-- punto 4
+/*Crea un procedimiento almacenado manejoCombinado que intente insertar un registro en una tabla
+inexistente y luego intente crear una tabla que ya existe, manejando ambos casos con sus
+respectivos handlers*/
+
+DELIMITER //
+create procedure manejoCombinado (in p_nombre_tabla_a_insertar varchar(50), in p_nombre_tabla_crear varchar(50), in p_id int)
+begin 
+	
+	declare continue handler for 1146
+    begin 
+		select 'tabla inexistente' 
+	end;
+    
+    begin
+		declare continue handler for 1050
+		begin 
+			select 'la tabla ya existe'
+		end;
+	end;
+	
+    insert into p_nombre_tabla (id) values (p_id);
+    
+    create table p_nombre_tabla_crear(id int);
+    
+end;
+
+DELIMITER ;
+
+call manejoCombinado (medicos,planes,5)
+
+-- punto 5
+/*Crea un procedimiento almacenado insertarActividad que intente insertar un registro en la tabla
+actividades y maneje el error si el id_socio o id_plan no existen en sus respectivas tablas. */
+
+-- punto 6
+/*Crea un procedimiento almacenado seleccionarSocio que intente seleccionar un registro de la tabla
+socios basándose en un ID que no existe y maneje la condición NOT FOUND. */
+
+DELIMITER // 
+create procedure seleccionarSocio (in p_id int)
+begin
+	declare exit handler for not found
+    begin
+		select 'el id ingresado no esta relacionado a algun socio'
+	end;
+		
+	select
+		*
+	from
+		socios
+	where 
+		id = p_id
+        
+end;
+
+DELIMITER ;
+
+-- punto 7
+/* Desarrolla un procedimiento almacenado registrarSocioConPlan. Recibe como parámetros los
+datos de un nuevo socio (nombre, apellido, fecha_nacimiento, dirección, teléfono) y los IDs de un
+plan y una actividad. El procedimiento debe:
+	1. Insertar el nuevo socio en la tabla socios.
+	2. Insertar una nueva actividad para ese socio y el plan especificado en la tabla actividades.
+	3. Manejar los siguientes errores:
+	– Si ocurre un error durante la inserción del socio, realizar un ROLLBACK y devolver un
+	mensaje de error.
+	– Si los IDs del plan o la actividad no existen, realizar un ROLLBACK y devolver un mensaje
+	de error.
+	4. Si todas las operaciones se realizan con éxito, realizar un COMMIT y devolver un mensaje
+	de éxito.*/
+    
+DELIMITER //
+
+create procedure registrarSocioConPlan (in p_nombre varchar(50), IN p_apellido varchar(50), in p_nacimiento date, in p_direccion varchar(50), in p_telefono int, in p_id_plan int, in p_id_actividad int)
+begin
+	
+    -- PREGUNTAR COMO PUEDO USAR ESTE HANDLER
+    
+    declare exit handler for not found
+    begin
+		rollback;
+        select 'id no encontrado';
+    end;
+    
+    declare exit handler for sqlexception
+    begin
+		rollback;
+		select 'error al cargar un socion';
+	end;
+    
+    start transaction;
+    
+    insert into usuarios(nombre, apellido, fecha_nacimiento, direccion, telefono)
+    values (p_nombre, p_apellido, p_nacimiento, p_direccion, p_telefono);
+    
+    call verificarActividad (p_id_actividad, @vs_id_actividad);
+    call verificarPlan (p_id_plan, @vs_id_plan);
+    
+    if (@vs_id_plan = 1) && (@vs_id_actividad = 1)
+		commit 
+        select 'registro completado con exicto';
+	else
+		rollback;
+        select 'uno de los id no se han encontrado'; -- como mejoro esto para que discrimine que id no se encontro?
+        
+	end transaction;
+end;
+
+DELIMITER ;
+
+DELIMITER //
+
+create procedure verificarActividad (in p_id int, out p_resultado boolean)
+begin
+	select exists (select 1 from actividades where id_actividad = p_id) into p_resultado
+end;
+
+DELIMITER ;
+
+DELIMITER //
+
+create procedure verificarPlan (in p_id int, out p_resultado boolean)
+begin
+	select exists (select 1 from planes where id_plan = p_id) into p_resultado
+end;
+
+DELIMITER ;
+
+-- punto 8
+/* Desarrolla un procedimiento almacenado actualizarPlanYRegistrarActividad. Recibe como
+parámetros el ID de un plan, su nuevo precio, el ID de un socio y el ID de una actividad. El
+procedimiento debe:
+	5. Actualizar el precio del plan especificado en la tabla planes.
+	6. Insertar una nueva actividad para el socio y el plan especificados en la tabla actividades.
+	7. Manejar los siguientes errores:
+	– Si ocurre un error durante la actualización del plan o la inserción de la actividad, realizar un
+	ROLLBACK y devolver un mensaje de error.
+	– Si los IDs del plan, socio o actividad no existen, realizar un ROLLBACK y devolver un
+	mensaje de error.
+	8. Si todas las operaciones se realizan con éxito, realizar un COMMIT y devolver un mensaje
+	de éxito. */
+    
+DELIMITER // 
+
+create procedure actualizarPlanYRegistrarActividad (in id_p_plan int, in p_precio_nuevo float, in p_id_socio int, in p_id_actividad int)
+begin
+	
+    create exit handler for sqlexception
+    begin
+		rollback;
+        select 'Ha ocurrido un error critico';
+	end;
+    
+    start transaction;
+    
+    update planes
+    set precio = p_precio_nuevo
+    where id_plan = id_p_plan;
+    
+    call verificarActividad (p_id_actividad, @vs_exist_actividad);
+    call verificarPlan (p_id_plan, @vs_exist_plan);
+    call verificarSocio (p_id_socio, @vs_exist_socio)
+    
+    if (@vs_id_plan = 1) && (@vs_id_actividad = 1) && (vs_exist_socio = 1)
+		commit 
+        select 'registro completado con exito';
+	else
+		rollback;
+        select 'uno de los id no se han encontrado'; 
+	
+    end transaction;
+end;
+
+DELIMITER ;
+
+DELIMITER //
+
+create procedure verificarSocio (in p_id int, in p_resultado boolean)
+begin
+	select exists (select 1 from socios where id_socio = p_id) into p_resultado
+end;
+
+DELIMITER ;
+
+-- punto 9
+/* Desarrolla un procedimiento almacenado eliminarSocioYActividades. Recibe como parámetro el ID
+de un socio. El procedimiento debe:
+	9. Eliminar todas las actividades asociadas al socio en la tabla actividades.
+	10. Eliminar el socio de la tabla socios.
+	11. Manejar los siguientes errores:
+	– Si ocurre un error durante la eliminación de las actividades o del socio, realizar un
+	ROLLBACK y devolver un mensaje de error.
+	– Si el socio no existe, realizar un ROLLBACK y devolver un mensaje de error.
+	12. Si todas las operaciones se realizan con éxito, realizar un COMMIT y devolver un mensaje
+	de éxito. */

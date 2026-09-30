@@ -1,0 +1,485 @@
+create database simulacro_parcial ;
+
+CREATE TABLE Equipos (
+ EquipoID INT PRIMARY KEY AUTO_INCREMENT,
+ NombreEquipo VARCHAR(100),
+ Ciudad VARCHAR(100),
+ FechaFundacion DATE
+);
+INSERT INTO Equipos (NombreEquipo, Ciudad, FechaFundacion)
+VALUES
+('Tigres FC', 'Buenos Aires', '1985-03-21'),
+('Águilas Doradas', 'Mendoza', '1990-07-15'),
+('Leones Negros', 'Cordoba', '1978-11-05');
+
+CREATE TABLE Jugadores (
+ JugadorID INT PRIMARY KEY AUTO_INCREMENT,
+ Nombre VARCHAR(100),
+ Apellido VARCHAR(100),
+ FechaNacimiento DATE,
+ EquipoID INT,FOREIGN KEY (EquipoID) REFERENCES Equipos(EquipoID)
+);
+INSERT INTO Jugadores (Nombre, Apellido, FechaNacimiento, EquipoID)
+VALUES
+('Lucas', 'González', '1995-04-12', 1),
+('Matías', 'Rodríguez', '1993-09-23', 2),
+('Diego', 'Fernández', '1990-01-15', 3);
+
+CREATE TABLE Torneos (
+ TorneoID INT PRIMARY KEY AUTO_INCREMENT,
+ NombreTorneo VARCHAR(100),
+ FechaInicio DATE,
+ FechaFin DATE,
+ Ubicacion VARCHAR(100)
+);
+INSERT INTO Torneos (NombreTorneo, FechaInicio, FechaFin, Ubicacion)
+VALUES
+('Torneo Apertura', '2025-04-01', '2025-04-30', 'Buenos Aires'),
+('Torneo Clausura', '2025-05-01', '2025-05-31', 'Cordoba');
+
+CREATE TABLE Partidos (
+ PartidoID INT PRIMARY KEY AUTO_INCREMENT,
+ TorneoID INT,
+ EquipoLocalID INT,
+ EquipoVisitanteID INT,
+ FechaPartido DATE,
+ Resultado VARCHAR(50),
+ FOREIGN KEY (TorneoID) REFERENCES Torneos(TorneoID),
+ FOREIGN KEY (EquipoLocalID) REFERENCES Equipos(EquipoID),
+ FOREIGN KEY (EquipoVisitanteID) REFERENCES Equipos(EquipoID)
+);
+
+INSERT INTO Partidos (TorneoID, EquipoLocalID, EquipoVisitanteID, FechaPartido,
+Resultado)
+VALUES
+(1, 1, 2, '2025-04-10', '2-1'),
+(1, 2, 3, '2025-04-15', '0-0');
+
+CREATE TABLE estadisticasjugador (
+    EstadisticaID INT AUTO_INCREMENT PRIMARY KEY,
+    JugadorID INT NOT NULL,
+    PartidoID INT NOT NULL,
+    Goles INT DEFAULT 0,
+    Asistencias INT DEFAULT 0,
+    TarjetasAmarillas INT DEFAULT 0,
+    TarjetasRojas INT DEFAULT 0,
+
+    CONSTRAINT fk_estadistica_jugador
+        FOREIGN KEY (JugadorID)
+        REFERENCES jugadores(JugadorID)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE,
+
+    CONSTRAINT fk_estadistica_partido
+        FOREIGN KEY (PartidoID)
+        REFERENCES partidos(PartidoID)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE
+);
+
+INSERT INTO estadisticasjugador
+(JugadorID, PartidoID, Goles, Asistencias, TarjetasAmarillas, TarjetasRojas)
+VALUES
+(1, 1, 2, 0, 1, 0),
+(2, 1, 1, 1, 0, 0),
+(3, 1, 0, 0, 1, 0),
+(1, 2, 0, 0, 0, 0),
+(2, 2, 0, 0, 1, 0),
+(3, 2, 0, 0, 0, 1);
+
+
+-- punto 1
+/* Registrar un nuevo partido: procedimiento almacenado llamado registrarPartido.
+Este procedimiento debe:
+	o Recibir como parámetros los IDs de los equipos (local y visitante), el ID del
+torneo y la fecha del partido.
+	o Verificar que los IDs de los equipos y del torneo existan.
+	o Registrar un nuevo partido en la tabla Partidos.
+	o Manejar errores mediante transacciones (ROLLBACK en caso de IDs 
+inexistentes o errores de SQL).
+	o Devolver un mensaje indicando el éxito o el error de la operación. */
+    
+DELIMITER //
+
+create procedure registrarPartido(in p_id_equipo_local int,in p_id_equipo_visit int, in p_id_torneo int, in p_fecha date)
+begin
+	declare v_resultado_partido int;
+    set v_resultado_partido = 0;
+    declare v_resultado_local int;
+    set v_resultado_local = 0;
+    declare v_resultado_visit int;
+    set v_resultado_visit = 0;
+    
+	create exit handler for sqlexception
+    begin 
+		select "a ocurrido un error";
+	end;
+    
+    create exit handler for 1452
+    begin
+		rollback;
+		select "el id que intenta ingresar no existe";
+	end;
+    
+    select 
+		1 into v_resultado_partido 
+	from
+		torneos
+	where
+		p_id_torneo = TorneoID
+        
+	select
+		1 into v_resultado_local
+	from
+		equipos 
+	where
+		p_id_local = equipoID
+		
+	select
+		1 into v_resultado_visit
+	from
+		equipos 
+	where
+		p_id_visit = equipoID
+        
+	start transaction
+		if((p_resultado_partido or p_resultado_local or p_resultado_visit) = 0)
+			signal sqlstate 1452;
+        else
+			insert into partidos (TorneoID,EquipodLocalID,EquipoVisitanteID,FechaPartido)
+			values (p_id_torneo,p_id_local,p_id_visitante,p_fecha);
+            
+            commit;
+            
+            select "la operacion de carga se ha completado con exito";
+		end if;
+end;
+
+DELIMITER ;
+
+-- punto 2
+/* Registrar estadísticas de un jugador
+
+Crear un procedimiento almacenado llamado registrarEstadisticasJugador que:
+
+Reciba como parámetros:
+	ID del jugador
+	ID del partido
+	Goles
+	Asistencias
+	Tarjetas amarillas
+	Tarjetas rojas
+Verifique que los IDs proporcionados (jugador y partido) existan.
+Si algún ID no existe, genere un error personalizado usando SIGNAL.
+Inserte las estadísticas del jugador en la tabla EstadisticasJugador.
+Devuelva un mensaje de confirmación si la operación fue exitosa. */
+
+DELIMITER //
+
+create procedure registrarEstadisticasJugador(in p_id_jugador int, in p_id_partido int, in p_goles int, in p_asistencias int, in p_tarjeta_roja int, in p_tarjeta_amarilla int)
+begin
+	declare v_resultado_partido int;
+    set v_resultado_partido = 0;
+    declare v_resultado_jugador int;
+    set v_resultado_jugador = 0;
+    
+    declare exit handler for 1452
+    begin
+		select "id inexistente";
+	end;
+    
+    select
+		count(*) into v_resultado_partido
+	from
+		partidos 
+	where
+		p_id_partido = PartidoID
+    
+    
+    select
+		count(*) into v_resultado_jugador
+	from
+		jugadores 
+	where
+		p_id_jugador = JugadorID
+        
+        if((v_resultado_partido or v_resultado_jugador) = 0
+			signal sqlstate 1452
+		else
+			insert into estadisticasjugador (JugadorID,PartidoId,Goles,Asistencias,TarjetasAmarillas,TarjetasRojas)
+            values (p_id_jugador,p_id_partido,p_goles,p_asistencias,p_tarjeta_amarilla,p_tarjeta_roja);
+			select "carga de datos completada con exito"
+		end if;
+end;
+
+DELIMITER ;
+
+-- ejercicio 3
+/* Actualizar estadísticas de un jugador
+Crear un procedimiento almacenado llamado actualizarEstadisticasJugador que:
+
+Reciba como parámetros:
+ID del jugador
+ID del partido
+Goles
+Asistencias
+Tarjetas amarillas
+Tarjetas rojas
+Verifique que los IDs existan.
+Actualice las estadísticas del jugador en la tabla EstadisticasJugador.
+Maneje errores mediante transacciones, utilizando ROLLBACK en caso de fallas.
+Devuelva un mensaje indicando éxito o error. */
+
+DELIMITER //
+
+create procedure actualizarEstadisticasJugador(in p_id_jugador int, in p_id_partido int, in p_goles int, in p_asistencias int, in p_tarjetas_rojas int, in p_tarjetas_amarillas int)
+begin
+	declare v_resultado_partido int;
+    set v_resultado_partido = 0;
+    declare v_resultado_jugador int;
+    set v_resultado_jugador = 0;
+    
+    declare exit handler for 1452
+    begin
+		rollback;
+		select "id inexistente";
+	end;
+    
+    select
+		1 into v_resultado_partido
+	from
+		partidos 
+	where
+		p_id_partido = PartidoID;
+    
+    
+    select
+		1 into v_resultado_jugador
+	from
+		jugadores 
+	where
+		p_id_jugador = JugadorID;
+        
+	if((v_resultado_partido || v_resultado_jugador) = 0)
+		signal sqlstate 1452;
+	else
+		update estadisticasjugador (JugadorID,PartidoID,Goles,Asistencias,TajertasRojas,TarjetasAmarillas)
+        values (p_id_partido,p_goles,p_asistencias,p_tarjetas_rojas,p_tarjetas_amarillas)
+		where JugadorID = p_id_jugador;
+        
+        commit;
+        
+        select "la carga se ah completado con exito";
+        
+	end if;
+end;
+
+DELIMITER ;
+
+-- ejercicio 4
+/* Auditar inscripciones a torneos
+
+Crear un trigger llamado auditarInscripcionTorneo que:
+
+Se dispare después de insertar un registro en la tabla Torneos.
+Inserte en la tabla AuditoriaInscripciones:
+ID del torneo
+Nombre del torneo */
+
+DELIMITER //
+
+create trigger auditarInscripcionTorneo
+after insert on torneos
+for each row 
+begin
+	insert into AuditoriaInscripciones(id_torneo,nombre_tornero)
+    values(new.TorneoID,new.NombreTorneo);
+end;
+
+DELIMITER ; 
+
+-- punto 5
+/* Auditar cambios en resultados de partidos: TRIGGER llamado
+auditarCambioResultado que:
+o Se dispare después de actualizar un registro en la tabla Partidos.
+o Si el resultado del partido cambia, registre los valores antiguos y nuevos en
+la tabla AuditoriaResultados.
+ */
+ DELIMITER //
+ 
+ create trigger auditarCambioResultado
+ after update on Partidos
+ for each row
+ begin
+	if(new.Resultado <> old.Resultado)
+		insert into AuditoriaResultados (id_partido,resultado_anterior,resultado_nuevo)
+		values (old.PartidoID,old.Resultado,new.Resultado)
+ end;
+ 
+ DELIMITER ; 
+ 
+ -- punto 6
+ /* Calcular el promedio de goles por jugador
+
+Crear una función llamada promedioGolesPorJugador que:
+
+Reciba como parámetro el ID de un jugador.
+Calcule el promedio de goles dividiendo:
+total de goles / cantidad de partidos jugados
+Devuelva el resultado como un valor decimal. */
+
+DELIMITER //
+
+create function promedioGolesPorJugador(p_id_jugador int)
+returns float
+deterministic
+reads sql data
+begin
+	declare v_resultado float 
+	declare v_total_goles int;
+    declare v_partidos_jugados int;
+    
+    select 
+		count(est.PartidoID) into v_partidos_jugados,
+        count(est.Goles) into v_total_goles
+	from
+		jugadores as j join estadisticasjugador as est
+		on j.JugadorID = est.JugadorID join partidos as p
+        on est.PartidoID = p.PartidoID
+	where 
+		est.JugadorID = p_id_jugador
+        
+	set v_resultado =
+        
+    return v_resultado = v_total_goles / v_partidos_jugados
+end;
+
+DELIMITER ;
+
+-- punto 7
+/*  Obtener estadísticas de un jugador
+
+Crear una función llamada estadisticasJugador que:
+
+Reciba como parámetro el ID de un jugador.
+Devuelva una cadena de texto con:
+nombre completo del jugador
+total de goles
+total de asistencias
+
+registrados en la tabla EstadisticasJugador.  */
+
+DELIMITER //
+
+create function estadisticasJugador(p_id_jugador int)
+returns varchar(50)
+deterministic
+reads sql data
+begin
+	declare v_mensaje varchar(50);
+    declare v_nombre varchar(50);
+    declare v_apellido varchar(50);
+    declare v_goles int;
+    declare v_asistencias int;
+    
+    select
+		j.Nombre,
+        j.Apellido,
+        est.Goles,
+        est.Asistencias
+        into
+        v_nombre,
+        v_apellido,
+        v_goles,
+        v_asistencias
+	from
+		jugador as j join estadisticasjugador as est
+        on j.JugadorID = est.JugadorID
+	where
+		j.JugadorID = p_id_jugador;
+    
+    set v_mensaje = concat(v_nombre,' ',v_apellido,' ',v_goles,' goles ',v_asistencias,' asistencias';
+    
+    return v_mensaje;
+end;
+
+DELIMITER ; 
+
+-- punto 8
+/* Tarjetas por jugador
+
+Crear una consulta utilizando una CTE llamada TarjetasPorJugador que:
+
+Agrupe las tarjetas amarillas y rojas de cada jugador.
+Combine ambas cantidades usando UNION ALL.
+En la consulta principal, muestre:
+nombre del jugador
+cantidad total de tarjetas (amarillas + rojas)
+
+ordenadas de forma descendente. */
+
+with TarjetasPorJugador as(
+	select
+		JugadorID,
+		TarjetasRojas as cantidad 
+	from
+		estadisticasjugador
+    union all
+    select
+		JugadorID,
+		TarjetasAmarillas as cantidad
+	from
+		estadisticasjugador
+)
+
+select
+	j.nombre,
+    sum(t.cantidad)
+from
+	jugadores as j join TarjetasPorJugador as t 
+    on j.JugadorID = t.JugadorID
+group by
+	j.nombre
+order by 
+	t.cantidad desc;
+
+-- punto 9
+/* Estadísticas de los mejores jugadores
+
+Crear una CTE llamada TopJugadores que:
+
+Seleccione los jugadores con:
+más de 5 goles
+3 o más asistencias
+En la consulta principal, muestre:
+nombre
+apellido
+equipo
+total de goles
+total de asistencias de los jugadores destacados. */
+
+with TopJugadores as(
+	select
+		JugadorID,
+		sum(Goles) as total_goles,
+        sum(Asistencias) as total_asistencias
+	from
+		estadisticasjugador
+	group by
+		JugadorID
+	having
+		total_goles > 5 and
+        total_asistencias > 3
+)
+
+select
+	j.Nombre,
+    j.Apellido,
+    e.NombreEquipo,
+    t.total_goles,
+    t.total_asistencias
+from
+	equipos as e join jugadores as j
+    on e.EquipoID = j.EquipoID join TopJugadores as t
+    on j.JugadorID = t.JugadorID
+    

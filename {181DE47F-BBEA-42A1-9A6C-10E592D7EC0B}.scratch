@@ -1,0 +1,143 @@
+-- Punto 1
+/*
+select 
+	nombre,
+    precio
+from
+	productos
+where
+	precio > (select
+				avg(precio)
+			  from
+				productos)
+*/
+
+-- Punto 2
+/*
+select distinct
+	nombre
+from
+	clientes
+where
+	clientes.id in (select
+						v.cliente_id
+					from
+						ventas as v
+					where
+						v.producto_id in (select
+											id
+										  from
+											productos
+										  where 
+											precio > 100))
+*/
+
+-- Punto 3
+/*
+select 
+	p.nombre
+from
+	productos as p
+where
+	(select 
+		count(cantidad) as cantidad_veces_vendido
+	 from
+		ventas
+	 where
+		ventas.producto_id = p.id) >= 2
+*/
+
+-- Punto 4
+/*
+select distinct
+	c.nombre
+from
+	clientes as c join (select 
+                            count(cliente_id) as veces_compra
+						from
+							ventas
+						where
+							veces_compra > 1) as calcular_veces_comprado
+	on c.id = calcular_veces_comprado.cliente_id
+*/
+
+-- punto ?
+/*
+select 
+	ventas_por_cliente.nombre
+from
+	 (select 
+			v.cliente_id,
+			c.nombre,
+			count(cliente_id) as veces_compra
+	  from
+			clientes as c join ventas as v
+			on c.id = v.cliente_id
+	  group by 
+			v.cliente_id,
+			c.nombre) as ventas_por_cliente
+where
+	ventas_por_cliente.veces_compra > 1
+*/
+
+-- punto 
+/*
+select
+	p.nombre,
+    p.precio,
+	(select
+		sum(v.cantidad) as veces_vendidos
+	 from
+		ventas as v
+	 where
+		v.producto_id = p.id) as veces_vendido
+from
+	productos as p
+*/
+
+-- punto 7
+/*
+select
+	nombre
+from
+	productos
+where
+	id not in (select
+					producto_id
+				from
+					ventas);
+*/
+
+-- punto 8
+/*
+select distinct
+	p.nombre
+from
+	productos as p join (select
+							cantidad,
+                            producto_id
+						 from
+							ventas
+						 where
+							cantidad <= 10) as veces_vendido
+	on p.id = veces_vendido.producto_id;
+*/
+
+-- punto 9
+/*
+select 
+	p.nombre,
+    p.precio
+from
+	productos as p
+where
+	p.precio > (select
+					avg(precio) as precio_promedio
+				from
+					productos
+				where
+					id in (select
+								producto_id
+							from
+								ventas))
+*/
